@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apology Notebook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            /* A realistic warm wood/desk background */
+            background-color: #c9a986;
+            background-image: radial-gradient(#d3b89a 10%, transparent 10%),
+                              radial-gradient(#d3b89a 10%, transparent 10%);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+            font-family: 'Caveat', cursive;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .notebook-shadow {
+            box-shadow: 20px 20px 40px rgba(0, 0, 0, 0.4), 
+                        -5px 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .page {
+            background-color: #fcfaf5;
+            /* Lined paper effect */
+            background-image: 
+                linear-gradient(90deg, transparent 49px, #f4ada3 49px, #f4ada3 51px, transparent 51px),
+                repeating-linear-gradient(transparent, transparent 31px, #a8d0e6 31px, #a8d0e6 32px);
+            background-size: 100% 100%, 100% 32px;
+            background-attachment: local;
+        }
+
+        .left-page {
+            border-radius: 12px 0 0 12px;
+            box-shadow: inset -15px 0 20px -15px rgba(0,0,0,0.3);
+            border-right: 1px solid #dcd3c6;
+        }
+
+        .right-page {
+            border-radius: 0 12px 12px 0;
+            box-shadow: inset 15px 0 20px -15px rgba(0,0,0,0.3);
+            border-left: 1px solid #dcd3c6;
+        }
+
+        .notebook-spine {
+            background: linear-gradient(to right, #e0d5c1 0%, #ffffff 50%, #e0d5c1 100%);
+            box-shadow: inset 0px 0px 10px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        textarea {
+            resize: none;
+            outline: none;
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            border: none;
+            font-size: 24px;
+            /* Exact match to the repeating linear gradient background */
+            line-height: 32px; 
+            padding-top: 32px;
+            /* Offset to align text above the blue lines */
+            padding-left: 60px;
+            padding-right: 20px;
+            color: #2c3e50;
+        }
+
+        textarea::placeholder {
+            color: rgba(44, 62, 80, 0.3);
+        }
+
+        /* Scrollbar styling for a cleaner look */
+        textarea::-webkit-scrollbar {
+            width: 6px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 4px;
+        }
+
+        /* Custom Modal styling */
+        .modal-overlay {
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+
+    <div id="music-player" class="fixed top-4 right-4 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-lg flex items-center gap-3 z-50 cursor-pointer hover:bg-white transition-colors" onclick="togglePlay()">
+        <div id="play-icon" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0 transition-transform hover:scale-105">
+            <!-- Play Icon -->
+            <svg id="icon-play" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#ffffff" viewBox="0 0 256 256"><path d="M228.23,134.69l-144,96A16,16,0,0,1,60,217.31V38.69A16,16,0,0,1,84.23,25.31l144,96A16,16,0,0,1,228.23,134.69Z"></path></svg>
+            <!-- Pause Icon (hidden by default) -->
+            <svg id="icon-pause" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#ffffff" viewBox="0 0 256 256"><path d="M216,48V208a16,16,0,0,1-16,16H160a16,16,0,0,1-16-16V48a16,16,0,0,1,16-16h40A16,16,0,0,1,216,48ZM96,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V48A16,16,0,0,0,96,32Z"></path></svg>
+        </div>
+        <div class="flex flex-col text-sm font-sans mr-2">
+            <span class="font-bold text-gray-800 leading-tight">Trust Issues</span>
+            <span class="text-xs text-gray-500">Drake (Instrumental Cover)</span>
+            <span id="player-status" class="text-[10px] text-blue-500 font-semibold mt-0.5">Ready</span>
+        </div>
+        
+        <!-- Standard HTML5 Audio Element instead of YouTube iframe -->
+        <audio id="bg-audio" loop>
+            <!-- Using a free-to-use Lo-Fi hip hop track as a reliable fallback, as direct MP3s of copyrighted songs cannot be reliably hotlinked -->
+            <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
+    <!-- Invisible overlay to capture the first click -->
+    <div id="interaction-overlay" class="fixed inset-0 z-[9999] cursor-pointer" onclick="initAudio()"></div>
+
+    <script>
+        let isPlaying = false;
+        let audioElement;
+        let audioInitialized = false;
+
+        function initAudio() {
+            if (audioInitialized) return;
+            
+            // Remove the overlay
+            document.getElementById('interaction-overlay').remove();
+            
+            audioElement = document.getElementById('bg-audio');
+            
+            // Attempt to play the audio
+            audioElement.play().then(() => {
+                isPlaying = true;
+                audioInitialized = true;
+                updatePlayerUI();
+            }).catch(error => {
+                console.error("Autoplay failed:", error);
+                document.getElementById('player-status').innerText = 'Click to Play';
+                audioInitialized = true; // Mark as init so the button works
+            });
+            
+            // Focus the first textarea
+            document.getElementById('page-1').focus();
+        }
+
+        function togglePlay() {
+            if (!audioInitialized) {
+                initAudio();
+                return;
+            }
+
+            audioElement = document.getElementById('bg-audio');
+
+            if (isPlaying) {
+                audioElement.pause();
+                isPlaying = false;
+            } else {
+                audioElement.play().catch(e => console.error("Play failed:", e));
+                isPlaying = true;
+            }
+            updatePlayerUI();
+        }
+
+        function togglePlay() {
+            if (!audioInitialized) {
+                // If they click the widget before anywhere else, initialize it
+                initAudio();
+                return;
+            }
+
+            try {
+                if (isPlaying) {
+                    ytPlayerIframe.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    isPlaying = false;
+                } else {
+                    ytPlayerIframe.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    isPlaying = true;
+                }
+                updatePlayerUI();
+            } catch (e) {
+                console.error("Error communicating with player", e);
+                document.getElementById('player-status').innerText = 'Error playing';
+                document.getElementById('player-status').classList.replace('text-blue-500', 'text-red-500');
+            }
+        }
+
+        function updatePlayerUI() {
+            const iconPlay = document.getElementById('icon-play');
+            const iconPause = document.getElementById('icon-pause');
+            const statusText = document.getElementById('player-status');
+            
+            if (isPlaying) {
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+                statusText.innerText = 'Playing now';
+                statusText.classList.replace('text-blue-500', 'text-green-500');
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+                statusText.innerText = 'Paused';
+                statusText.classList.replace('text-green-500', 'text-blue-500');
+            }
+        }
+    </script>
+
+    <div class="relative w-full max-w-5xl h-[80vh] min-h-[500px] flex notebook-shadow rounded-xl bg-[#e0d5c1] p-1">
+        
+        <!-- Left Page -->
+        <div class="page left-page flex-1 relative overflow-hidden">
+            <textarea id="page-1" placeholder="Dear..."></textarea>
+        </div>
+
+        <!-- Binding/Spine -->
+        <div class="w-8 h-full notebook-spine relative flex flex-col items-center justify-evenly py-4">
+            <!-- Simulating binder rings/stitches -->
+            <script>
+                // Generate binder rings dynamically for a nice visual
+                for(let i=0; i<12; i++) {
+                    document.write(`
+                        <div class="w-full flex items-center justify-center">
+                            <div class="w-6 h-3 bg-gray-300 rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] border border-gray-400"></div>
+                        </div>
+                    `);
+                }
+            </script>
+        </div>
+
+        <!-- Right Page -->
+        <div class="page right-page flex-1 relative overflow-hidden">
+            <textarea id="page-2" placeholder="I'm writing this because..."></textarea>
+        </div>
+
+    </div>
+
+    <div class="mt-8 flex gap-4">
+        <button onclick="saveNotebook()" class="px-6 py-3 bg-slate-800 text-white font-sans font-semibold rounded-full shadow-lg hover:bg-slate-700 transition transform hover:scale-105 active:scale-95">
+            Save Apology
+        </button>
+        <button onclick="viewSavedNotebook()" id="view-saved-btn" class="px-6 py-3 bg-amber-100 text-amber-800 font-sans font-semibold rounded-full shadow-lg hover:bg-amber-200 transition transform hover:scale-105 active:scale-95 hidden">
+            View Saved
+        </button>
+        <button onclick="suggestApology()" class="px-6 py-3 bg-blue-100 text-blue-700 font-sans font-semibold rounded-full shadow-lg hover:bg-blue-200 transition transform hover:scale-105 active:scale-95 flex items-center gap-2" id="suggest-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+            </svg>
+            Help me write
+        </button>
+        <button onclick="clearNotebook()" class="px-6 py-3 bg-red-100 text-red-700 font-sans font-semibold rounded-full shadow-lg hover:bg-red-200 transition transform hover:scale-105 active:scale-95">
+            Tear out pages
+        </button>
+        <button onclick="shareApology()" id="share-btn" class="px-6 py-3 bg-emerald-100 text-emerald-700 font-sans font-semibold rounded-full shadow-lg hover:bg-emerald-200 transition transform hover:scale-105 active:scale-95 hidden flex items-center gap-2">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+            </svg>
+            Share
+        </button>
+    </div>
+
+    <div id="share-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay bg-black/20">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full font-sans text-center transform scale-95 transition-transform duration-300" id="share-modal-content">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Send Your Apology</h3>
+            <p class="text-gray-500 mb-4 text-sm">Since you are hosting this on GitHub Pages, you can send them a direct link to read it, or copy the text to send via message.</p>
+            
+            <div class="mb-4">
+                <label class="block text-left text-sm font-semibold text-gray-700 mb-1">Direct Link (URL with your text)</label>
+                <div class="flex">
+                    <input type="text" id="share-link-input" class="w-full bg-gray-100 border border-gray-300 rounded-l-lg p-2 text-sm text-gray-600 outline-none" readonly>
+                    <button onclick="copyShareLink()" class="bg-slate-800 text-white px-4 rounded-r-lg hover:bg-slate-700 transition text-sm font-semibold">Copy</button>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-left text-sm font-semibold text-gray-700 mb-1">Raw Text</label>
+                <textarea id="share-text-input" class="w-full bg-gray-100 border border-gray-300 rounded-lg p-2 text-sm text-gray-600 outline-none h-24 resize-none" readonly></textarea>
+                <button onclick="copyShareText()" class="mt-2 w-full bg-slate-800 text-white py-2 rounded-lg hover:bg-slate-700 transition text-sm font-semibold">Copy Text</button>
+            </div>
+
+            <button onclick="closeShareModal()" class="w-full py-2 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay bg-black/20">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full font-sans text-center transform scale-95 transition-transform duration-300" id="modal-content">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4" id="modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2" id="modal-title">Saved successfully!</h3>
+            <p class="text-gray-500 mb-6" id="modal-desc">Your notebook has been saved. The words will remain here while you keep this page open.</p>
+            <button onclick="closeModal()" class="w-full py-3 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-700 transition">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const page1 = document.getElementById('page-1');
+        const page2 = document.getElementById('page-2');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalIcon = document.getElementById('modal-icon');
+
+        // Note: Currently keeping the text in-memory.
+        let notebookState = {
+            leftText: "",
+            rightText: ""
+        };
+        let isViewingSaved = false;
+
+        // Check if there is an apology in the URL when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const savedApology = urlParams.get('apology');
+            
+            if (savedApology) {
+                try {
+                    // The text is base64 encoded to make it URL safe
+                    const decodedText = decodeURIComponent(atob(savedApology));
+                    
+                    // Split the text roughly in half for the two pages
+                    const middleIndex = Math.floor(decodedText.length / 2);
+                    // Find a space near the middle to avoid breaking words
+                    const splitIndex = decodedText.indexOf(' ', middleIndex) !== -1 ? decodedText.indexOf(' ', middleIndex) : middleIndex;
+                    
+                    if (decodedText.length > 200) {
+                         page1.value = decodedText.substring(0, splitIndex).trim();
+                         page2.value = decodedText.substring(splitIndex).trim();
+                    } else {
+                         page1.value = decodedText;
+                    }
+                    
+                    // Disable editing if they are receiving the apology
+                    page1.readOnly = true;
+                    page2.readOnly = true;
+                    document.getElementById('suggest-btn').style.display = 'none';
+                    
+                    showModal(
+                        "You have a message.", 
+                        "Someone sent you an apology. The music will start when you close this.",
+                        "success"
+                    );
+
+                } catch (e) {
+                    console.error("Failed to decode apology from URL", e);
+                }
+            }
+        });
+
+        function saveNotebook() {
+            notebookState.leftText = page1.value;
+            notebookState.rightText = page2.value;
+            
+            document.getElementById('view-saved-btn').classList.remove('hidden');
+            document.getElementById('share-btn').classList.remove('hidden');
+
+            showModal(
+                "Saved successfully!", 
+                "Your notebook has been safely tucked away in memory. You can now Share it or View it later.",
+                "success"
+            );
+        }
+
+        function viewSavedNotebook() {
+            const btn = document.getElementById('view-saved-btn');
+            
+            if (!isViewingSaved) {
+                // Switch to view mode
+                page1.value = notebookState.leftText;
+                page2.value = notebookState.rightText;
+                page1.readOnly = true;
+                page2.readOnly = true;
+                page1.classList.add('bg-amber-50/50'); // Slight visual cue
+                page2.classList.add('bg-amber-50/50');
+                btn.innerText = "Back to Editing";
+                btn.classList.replace('bg-amber-100', 'bg-gray-200');
+                btn.classList.replace('text-amber-800', 'text-gray-800');
+                isViewingSaved = true;
+            } else {
+                // Switch back to edit mode
+                page1.readOnly = false;
+                page2.readOnly = false;
+                page1.classList.remove('bg-amber-50/50');
+                page2.classList.remove('bg-amber-50/50');
+                btn.innerText = "View Saved";
+                btn.classList.replace('bg-gray-200', 'bg-amber-100');
+                btn.classList.replace('text-gray-800', 'text-amber-800');
+                isViewingSaved = false;
+            }
+        }
+
+        function shareApology() {
+            const fullText = (notebookState.leftText + " " + notebookState.rightText).trim();
+            if (!fullText) {
+                showModal("Nothing to share", "Please write and save an apology first.", "danger");
+                return;
+            }
+
+            const shareModal = document.getElementById('share-modal');
+            const shareModalContent = document.getElementById('share-modal-content');
+            const linkInput = document.getElementById('share-link-input');
+            const textInput = document.getElementById('share-text-input');
+
+            // Create a base64 encoded string of the text to append to the URL
+            const encodedText = btoa(encodeURIComponent(fullText));
+            
+            // Generate the link based on the current URL (works well for GitHub Pages)
+            const baseUrl = window.location.href.split('?')[0];
+            const shareUrl = `${baseUrl}?apology=${encodedText}`;
+
+            linkInput.value = shareUrl;
+            textInput.value = fullText;
+
+            shareModal.classList.remove('hidden');
+            shareModal.classList.add('flex');
+            
+            setTimeout(() => {
+                shareModalContent.classList.remove('scale-95');
+                shareModalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeShareModal() {
+            const shareModal = document.getElementById('share-modal');
+            const shareModalContent = document.getElementById('share-modal-content');
+            
+            shareModalContent.classList.remove('scale-100');
+            shareModalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                shareModal.classList.add('hidden');
+                shareModal.classList.remove('flex');
+            }, 300);
+        }
+
+        function copyShareLink() {
+            const linkInput = document.getElementById('share-link-input');
+            linkInput.select();
+            document.execCommand('copy');
+            
+            const btn = linkInput.nextElementSibling;
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.classList.replace('bg-slate-800', 'bg-green-600');
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.replace('bg-green-600', 'bg-slate-800');
+            }, 2000);
+        }
+
+        function copyShareText() {
+            const textInput = document.getElementById('share-text-input');
+            textInput.select();
+            document.execCommand('copy');
+            
+            const btn = textInput.nextElementSibling;
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.classList.replace('bg-slate-800', 'bg-green-600');
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.classList.replace('bg-green-600', 'bg-slate-800');
+            }, 2000);
+        }
+
+        function clearNotebook() {
+            page1.value = "";
+            page2.value = "";
+            notebookState.leftText = "";
+            notebookState.rightText = "";
+            
+            showModal(
+                "Pages Torn!", 
+                "You ripped the pages out. Start fresh when you're ready.",
+                "danger"
+            );
+        }
+
+        function showModal(title, description, type) {
+            modalTitle.innerText = title;
+            modalDesc.innerText = description;
+            
+            if (type === 'danger') {
+                modalIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`;
+                modalIcon.className = "w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4";
+            } else {
+                modalIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`;
+                modalIcon.className = "w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4";
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Trigger animation
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
+        }
+
+        async function suggestApology() {
+            const btn = document.getElementById('suggest-btn');
+            const originalText = btn.innerHTML;
+            
+            // Get current text to provide context to the LLM
+            const contextText = (page1.value + " " + page2.value).trim();
+            
+            // Simple validation to ensure there's at least *some* text if we want context, 
+            // but we can also suggest from scratch.
+            
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Thinking...`;
+            btn.disabled = true;
+
+            try {
+                const apiKey = ""; // API key is handled automatically by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                let prompt = "You are helping someone write a heartfelt apology letter in a notebook. Provide a short, sincere paragraph to add to the apology.";
+                if (contextText.length > 10) {
+                    prompt += ` Here is what they have written so far: "${contextText}". Suggest the next paragraph or sentence to continue this thought naturally. Do not repeat what they have already said. Just provide the continuation.`;
+                } else {
+                    prompt += " They haven't written much yet, so provide a good opening sentiment.";
+                }
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: {
+                        parts: [{ text: "You are an empathetic writing assistant. Keep responses brief (1-3 sentences), emotionally intelligent, and written in a conversational, heartfelt tone suitable for a personal apology letter." }]
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const suggestion = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (suggestion) {
+                    // Decide where to put the text
+                    if (page2.value.trim() !== "") {
+                         page2.value += (page2.value.endsWith(' ') || page2.value.endsWith('\n') ? '' : ' ') + suggestion.trim();
+                    } else if (page1.value.trim() !== "") {
+                        // If page 1 is getting full, move to page 2, otherwise append
+                        if (page1.value.length > 200) {
+                            page2.value = suggestion.trim();
+                        } else {
+                             page1.value += (page1.value.endsWith(' ') || page1.value.endsWith('\n') ? '' : ' ') + suggestion.trim();
+                        }
+                    } else {
+                        page1.value = suggestion.trim();
+                    }
+                } else {
+                     showModal("Oops", "Couldn't come up with a suggestion right now.", "danger");
+                }
+
+            } catch (error) {
+                console.error("Error fetching suggestion:", error);
+                showModal("Error", "There was a problem reaching the AI assistant.", "danger");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        // Browsers often block autoplaying audio if the user hasn't interacted with the page.
+        // A click anywhere ensures the music can start if it was blocked.
+        document.body.addEventListener('click', function() {
+            // Note: Iframe API is the standard way to trigger play, but simply having the iframe 
+            // initialized is often enough once interaction occurs, or we can reload the source.
+        }, { once: true });
+    </script>
+</body>
+</html>
